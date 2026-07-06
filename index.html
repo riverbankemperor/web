@@ -1,0 +1,750 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SecureVault - Szyfrowany Dysk Google</title>
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <style>
+    :root {
+      --bg: #0f1115;
+      --panel: #181b21;
+      --border: #2a2f38;
+      --text: #e6e6e6;
+      --muted: #9aa0a6;
+      --accent: #34a853;
+      --accent2: #1e8e3e;
+      --danger: #ea4335;
+      --warning: #fbbc04;
+      --info: #4285f4;
+    }
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0; padding: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      line-height: 1.5;
+    }
+    .container {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 24px;
+    }
+    header {
+      text-align: center;
+      padding: 32px 0 8px;
+    }
+    header h1 {
+      margin: 0;
+      font-size: 2rem;
+      letter-spacing: -0.5px;
+    }
+    header p {
+      color: var(--muted);
+      margin: 6px 0 0;
+    }
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+      margin-top: 16px;
+    }
+    .card h2 {
+      margin: 0 0 12px;
+      font-size: 1.1rem;
+      color: var(--text);
+    }
+    .form-row {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      align-items: flex-end;
+      margin-top: 8px;
+    }
+    .form-group {
+      flex: 1;
+      min-width: 220px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    label {
+      font-size: 0.85rem;
+      color: var(--muted);
+      font-weight: 500;
+    }
+    input[type="text"], input[type="password"] {
+      background: #0f1115;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 12px;
+      color: var(--text);
+      font-size: 0.95rem;
+      outline: none;
+    }
+    input[type="text"]:focus, input[type="password"]:focus {
+      border-color: var(--accent);
+    }
+    button, .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 10px 16px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s, transform 0.05s;
+      text-decoration: none;
+    }
+    button:hover, .btn:hover { background: var(--accent2); }
+    button:active, .btn:active { transform: translateY(1px); }
+    button:disabled, .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    .btn-secondary {
+      background: #2a2f38;
+      border: 1px solid var(--border);
+    }
+    .btn-secondary:hover { background: #333a47; }
+    .btn-danger { background: var(--danger); }
+    .btn-danger:hover { background: #c5221f; }
+    .btn-info { background: var(--info); }
+    .btn-info:hover { background: #3367d6; }
+
+    .status {
+      margin-top: 12px;
+      padding: 10px 12px;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      display: none;
+    }
+    .status.ok { background: #142b1a; color: #81c995; border: 1px solid #1e4620; display: block; }
+    .status.err { background: #2b1414; color: #f28b82; border: 1px solid #5c1c1c; display: block; }
+    .status.warn { background: #2b2614; color: #fdd663; border: 1px solid #5c541c; display: block; }
+    .status.info { background: #141b2b; color: #8ab4f8; border: 1px solid #1c2c5c; display: block; }
+
+    .spinner {
+      display: inline-block;
+      width: 16px; height: 16px;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .hidden { display: none !important; }
+
+    .toolbar {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .toolbar h2 { margin: 0; }
+
+    .file-list {
+      margin-top: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .file-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 12px 14px;
+      background: #0f1115;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+    }
+    .file-meta { flex: 1; min-width: 0; }
+    .file-name {
+      font-weight: 600;
+      word-break: break-all;
+    }
+    .file-detail {
+      font-size: 0.8rem;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+    .file-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+    .dropzone {
+      border: 2px dashed var(--border);
+      border-radius: 10px;
+      padding: 24px;
+      text-align: center;
+      color: var(--muted);
+      transition: border-color 0.2s, background 0.2s;
+      cursor: pointer;
+      position: relative;
+    }
+    .dropzone:hover, .dropzone.dragover {
+      border-color: var(--accent);
+      background: rgba(52, 168, 83, 0.05);
+    }
+    .dropzone input[type="file"] {
+      position: absolute;
+      inset: 0;
+      width: 100%; height: 100%;
+      opacity: 0;
+      cursor: pointer;
+    }
+
+    .preview-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.85);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      padding: 24px;
+    }
+    .preview-box {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      max-width: 90vw;
+      max-height: 90vh;
+      overflow: auto;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .preview-box img { max-width: 100%; height: auto; border-radius: 8px; }
+    .preview-box pre {
+      background: #0f1115;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px;
+      overflow: auto;
+      white-space: pre-wrap;
+      word-break: break-word;
+      max-height: 60vh;
+    }
+    .preview-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .hint {
+      font-size: 0.8rem;
+      color: var(--muted);
+      margin-top: 6px;
+    }
+    .divider {
+      border: none;
+      border-top: 1px solid var(--border);
+      margin: 16px 0;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>SecureVault</h1>
+      <p>Szyfrowany skarbiec na Twoim Dysku Google — client-side encryption, zero trust.</p>
+    </header>
+
+    <!-- KONFIGURACJA -->
+    <section class="card" id="configCard">
+      <h2>Konfiguracja</h2>
+      <div class="form-row">
+        <div class="form-group">
+          <label for="clientId">Google OAuth Client ID</label>
+          <input type="text" id="clientId" placeholder="np. 123...apps.googleusercontent.com" />
+        </div>
+        <div class="form-group">
+          <label for="passphrase">Hasło główne (passphrase)</label>
+          <input type="password" id="passphrase" placeholder="Min. 8 znaków, zapamiętaj je!" />
+        </div>
+      </div>
+      <div class="hint">
+        Client ID znajdziesz w <a href="https://console.cloud.google.com/apis/credentials" target="_blank" style="color:var(--info)">Google Cloud Console</a>.
+        Passphrase jest używane do szyfrowania i odszyfrowywania plików — nie ma go nigdzie zapisanego, jeśli go zapomnisz, pliki będą nie do odzyskania.
+      </div>
+      <div class="form-row" style="margin-top:14px">
+        <button id="btnLogin" onclick="startGoogleLogin()">
+          <span id="loginSpinner" class="spinner hidden"></span>
+          <span id="loginText">Zaloguj przez Google</span>
+        </button>
+        <button class="btn-secondary" id="btnLogout" onclick="logout()" disabled>Wyloguj</button>
+      </div>
+      <div id="status" class="status"></div>
+    </section>
+
+    <!-- PANEL PLIKÓW -->
+    <section class="card hidden" id="filesCard">
+      <div class="toolbar">
+        <h2>Twoje pliki</h2>
+        <div style="display:flex; gap:8px; align-items:center">
+          <span id="userLabel" style="color:var(--muted); font-size:0.85rem"></span>
+          <button class="btn-secondary" onclick="refreshFiles()">Odśwież</button>
+        </div>
+      </div>
+
+      <div class="dropzone" id="dropzone" onclick="document.getElementById('fileInput').click()">
+        <input type="file" id="fileInput" onchange="onFileSelected(event)" />
+        <strong>Przeciągnij plik tutaj lub kliknij, aby wybrać</strong>
+        <div class="hint" style="margin-top:6px">Plik zostanie zaszyfrowany w przeglądarce i wysłany na Dysk Google.</div>
+      </div>
+      <div id="uploadStatus" class="status" style="margin-top:8px"></div>
+
+      <hr class="divider" />
+
+      <div id="fileList" class="file-list">
+        <div class="hint" style="text-align:center; padding: 12px">Ładowanie listy plików…</div>
+      </div>
+    </section>
+  </div>
+
+  <!-- PREVIEW OVERLAY -->
+  <div id="previewOverlay" class="preview-overlay hidden" onclick="closePreview(event)">
+    <div class="preview-box" onclick="event.stopPropagation()">
+      <div class="preview-header">
+        <h3 id="previewTitle" style="margin:0">Podgląd</h3>
+        <button class="btn-secondary" onclick="closePreview()">Zamknij</button>
+      </div>
+      <div id="previewContent"></div>
+    </div>
+  </div>
+
+  <script>
+    // ==================== STATE ====================
+    let accessToken = null;
+    let tokenClient = null;
+    let userEmail = null;
+    let vaultFolderId = null;
+    const LS_CLIENT_ID = 'sv_client_id';
+
+    // ==================== UTILS ====================
+    function setStatus(msg, type = 'info') {
+      const el = document.getElementById('status');
+      el.textContent = msg;
+      el.className = 'status ' + type;
+    }
+    function setUploadStatus(msg, type = 'info') {
+      const el = document.getElementById('uploadStatus');
+      el.textContent = msg;
+      el.className = 'status ' + type;
+    }
+    function toggleLogin(loading) {
+      document.getElementById('btnLogin').disabled = loading;
+      document.getElementById('loginSpinner').classList.toggle('hidden', !loading);
+      document.getElementById('loginText').classList.toggle('hidden', loading);
+    }
+
+    // base64 / base64url
+    function bufToBase64(buffer) {
+      const bytes = new Uint8Array(buffer);
+      let binary = '';
+      const len = bytes.byteLength;
+      for (let i = 0; i < len; i++) binary += String.fromCharCode(bytes[i]);
+      return btoa(binary);
+    }
+    function base64ToBuf(base64) {
+      const binary = atob(base64);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+      return bytes;
+    }
+    function bufToBase64url(buffer) {
+      return bufToBase64(buffer).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+    }
+    function base64urlToBuf(str) {
+      str += new Array(5 - (str.length % 4)).join('=');
+      str = str.replace(/\-/g, '+').replace(/\_/g, '/');
+      return base64ToBuf(str);
+    }
+    function formatBytes(bytes) {
+      if (!bytes) return '0 B';
+      const k = 1024;
+      const sizes = ['B','KB','MB','GB'];
+      const i = Math.floor(Math.log(bytes) / Math.log(k));
+      return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    }
+
+    // ==================== CRYPTO ====================
+    async function deriveKey(passphrase, salt) {
+      const encoder = new TextEncoder();
+      const keyMaterial = await crypto.subtle.importKey(
+        'raw', encoder.encode(passphrase), { name: 'PBKDF2' }, false, ['deriveKey']
+      );
+      return crypto.subtle.deriveKey(
+        { name: 'PBKDF2', salt, iterations: 100000, hash: 'SHA-256' },
+        keyMaterial,
+        { name: 'AES-GCM', length: 256 },
+        false,
+        ['encrypt', 'decrypt']
+      );
+    }
+
+    async function encryptData(plaintext, passphrase) {
+      const salt = crypto.getRandomValues(new Uint8Array(16));
+      const iv = crypto.getRandomValues(new Uint8Array(12));
+      const key = await deriveKey(passphrase, salt);
+      const encrypted = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, plaintext);
+      const combined = new Uint8Array(16 + 12 + encrypted.byteLength);
+      combined.set(salt, 0);
+      combined.set(iv, 16);
+      combined.set(new Uint8Array(encrypted), 28);
+      return combined;
+    }
+
+    async function decryptData(ciphertext, passphrase) {
+      const salt = ciphertext.slice(0, 16);
+      const iv = ciphertext.slice(16, 28);
+      const data = ciphertext.slice(28);
+      const key = await deriveKey(passphrase, salt);
+      return await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, data);
+    }
+
+    async function encryptMetadata(obj, passphrase) {
+      const encoder = new TextEncoder();
+      const encrypted = await encryptData(encoder.encode(JSON.stringify(obj)), passphrase);
+      return bufToBase64url(encrypted);
+    }
+
+    async function decryptMetadata(b64url, passphrase) {
+      const encrypted = base64urlToBuf(b64url);
+      const decrypted = await decryptData(encrypted, passphrase);
+      const decoder = new TextDecoder();
+      return JSON.parse(decoder.decode(decrypted));
+    }
+
+    // ==================== GOOGLE DRIVE API ====================
+    async function apiFetch(url, opts = {}) {
+      opts.headers = opts.headers || {};
+      opts.headers['Authorization'] = 'Bearer ' + accessToken;
+      const res = await fetch(url, opts);
+      if (res.status === 401) {
+        setStatus('Sesja wygasła. Zaloguj się ponownie.', 'warn');
+        logout();
+        throw new Error('Unauthorized');
+      }
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error?.message || `HTTP ${res.status}`);
+      }
+      return res;
+    }
+
+    async function getOrCreateVaultFolder() {
+      if (vaultFolderId) return vaultFolderId;
+      const q = encodeURIComponent("name='SecureVault' and mimeType='application/vnd.google-apps.folder' and trashed=false");
+      const res = await apiFetch(`https://www.googleapis.com/drive/v3/files?q=${q}&spaces=drive&fields=files(id,name)`);
+      const data = await res.json();
+      if (data.files && data.files.length > 0) {
+        vaultFolderId = data.files[0].id;
+        return vaultFolderId;
+      }
+      const createRes = await apiFetch('https://www.googleapis.com/drive/v3/files', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: 'SecureVault', mimeType: 'application/vnd.google-apps.folder' })
+      });
+      const folder = await createRes.json();
+      vaultFolderId = folder.id;
+      return vaultFolderId;
+    }
+
+    async function listVaultFiles() {
+      const folderId = await getOrCreateVaultFolder();
+      const q = encodeURIComponent(`'${folderId}' in parents and trashed=false and name contains 'enc_' and name contains '.bin'`);
+      const res = await apiFetch(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,name,modifiedTime,size)`);
+      const data = await res.json();
+      return data.files || [];
+    }
+
+    async function uploadEncryptedFile(encryptedContent, driveName) {
+      const folderId = await getOrCreateVaultFolder();
+      const metadata = { name: driveName, parents: [folderId], mimeType: 'application/octet-stream' };
+      const boundary = '-------314159265358979323846';
+      const body = new Blob([
+        `--${boundary}\r\n`,
+        `Content-Type: application/json; charset=UTF-8\r\n\r\n`,
+        JSON.stringify(metadata),
+        `\r\n--${boundary}\r\n`,
+        `Content-Type: application/octet-stream\r\n\r\n`,
+        encryptedContent,
+        `\r\n--${boundary}--`
+      ], { type: 'multipart/related; boundary=' + boundary });
+
+      const res = await apiFetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
+        method: 'POST',
+        body
+      });
+      return res.json();
+    }
+
+    async function downloadDriveFile(fileId) {
+      const res = await apiFetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`);
+      return new Uint8Array(await res.arrayBuffer());
+    }
+
+    async function deleteDriveFile(fileId) {
+      await apiFetch(`https://www.googleapis.com/drive/v3/files/${fileId}`, { method: 'DELETE' });
+    }
+
+    // ==================== AUTH ====================
+    function getClientId() {
+      return document.getElementById('clientId').value.trim();
+    }
+    function getPassphrase() {
+      return document.getElementById('passphrase').value;
+    }
+
+    function startGoogleLogin() {
+      if (typeof google === 'undefined' || !google.accounts || !google.accounts.oauth2) {
+        setStatus('Biblioteka Google Identity Services nie jest jeszcze gotowa. Poczekaj chwilę i spróbuj ponownie.', 'warn');
+        return;
+      }
+      const clientId = getClientId();
+      const passphrase = getPassphrase();
+      if (!clientId) { setStatus('Podaj Client ID.', 'err'); return; }
+      if (!passphrase || passphrase.length < 4) { setStatus('Podaj passphrase (min. 4 znaki).', 'err'); return; }
+
+      localStorage.setItem(LS_CLIENT_ID, clientId);
+      toggleLogin(true);
+
+      if (!tokenClient) {
+        tokenClient = google.accounts.oauth2.initTokenClient({
+          client_id: clientId,
+          scope: 'https://www.googleapis.com/auth/drive.file',
+          prompt: 'consent',
+          callback: (tokenResponse) => {
+            toggleLogin(false);
+            if (tokenResponse && tokenResponse.access_token) {
+              accessToken = tokenResponse.access_token;
+              onLoggedIn();
+            } else {
+              setStatus('Logowanie nie powiodło się.', 'err');
+            }
+          },
+          error_callback: (err) => {
+            toggleLogin(false);
+            setStatus('Błąd logowania: ' + (err?.type || 'unknown'), 'err');
+          }
+        });
+      }
+      tokenClient.requestAccessToken();
+    }
+
+    async function onLoggedIn() {
+      try {
+        const res = await apiFetch('https://www.googleapis.com/drive/v3/about?fields=user(emailAddress)');
+        const data = await res.json();
+        userEmail = data.user?.emailAddress || 'zalogowany';
+        document.getElementById('userLabel').textContent = userEmail;
+        document.getElementById('btnLogin').classList.add('hidden');
+        document.getElementById('btnLogout').disabled = false;
+        document.getElementById('filesCard').classList.remove('hidden');
+        setStatus('Zalogowano. Passphrase nigdy nie jest wysyłana na serwer.', 'ok');
+        await refreshFiles();
+      } catch (e) {
+        setStatus('Błąd: ' + e.message, 'err');
+        logout();
+      }
+    }
+
+    function logout() {
+      accessToken = null;
+      userEmail = null;
+      vaultFolderId = null;
+      tokenClient = null;
+      document.getElementById('btnLogin').classList.remove('hidden');
+      document.getElementById('btnLogout').disabled = true;
+      document.getElementById('filesCard').classList.add('hidden');
+      document.getElementById('fileList').innerHTML = '';
+      setStatus('Wylogowano.', 'info');
+      if (google?.accounts?.oauth2) {
+        try { google.accounts.oauth2.revoke(accessToken, () => {}); } catch (e) {}
+      }
+    }
+
+    // ==================== FILES UI ====================
+    async function refreshFiles() {
+      const listEl = document.getElementById('fileList');
+      listEl.innerHTML = '<div class="hint" style="text-align:center; padding:12px">Ładowanie…</div>';
+      try {
+        const files = await listVaultFiles();
+        const passphrase = getPassphrase();
+        const decrypted = [];
+        for (const f of files) {
+          const m = f.name.match(/^enc_(.+)\.bin$/);
+          if (!m) continue;
+          try {
+            const meta = await decryptMetadata(m[1], passphrase);
+            decrypted.push({ ...meta, driveId: f.id, modifiedTime: f.modifiedTime, driveSize: f.size });
+          } catch (e) {
+            // Nieprawidłowe hasło lub nie nasz plik — pomijamy cicho
+          }
+        }
+        renderFileList(decrypted);
+      } catch (e) {
+        listEl.innerHTML = '<div class="hint" style="text-align:center; color:var(--danger)">Błąd ładowania: ' + e.message + '</div>';
+      }
+    }
+
+    function renderFileList(files) {
+      const el = document.getElementById('fileList');
+      if (files.length === 0) {
+        el.innerHTML = '<div class="hint" style="text-align:center; padding:16px">Brak plików w SecureVault. Wrzuć pierwszy plik powyżej.</div>';
+        return;
+      }
+      el.innerHTML = '';
+      files.sort((a, b) => (b.modifiedTime || '').localeCompare(a.modifiedTime || ''));
+      for (const f of files) {
+        const item = document.createElement('div');
+        item.className = 'file-item';
+        item.innerHTML = `
+          <div class="file-meta">
+            <div class="file-name">${escapeHtml(f.name)}</div>
+            <div class="file-detail">${escapeHtml(f.mimeType || 'application/octet-stream')} • ${formatBytes(f.size || 0)} • ${new Date(f.modifiedTime).toLocaleString('pl-PL')}</div>
+          </div>
+          <div class="file-actions">
+            ${canPreview(f.mimeType) ? `<button class="btn btn-info" onclick="previewFile('${f.driveId}', '${escapeHtml(f.name)}', '${f.mimeType}')">Podgląd</button>` : ''}
+            <button class="btn btn-secondary" onclick="downloadFile('${f.driveId}', '${escapeHtml(f.name)}', '${f.mimeType}')">Pobierz</button>
+            <button class="btn btn-danger" onclick="removeFile('${f.driveId}')">Usuń</button>
+          </div>
+        `;
+        el.appendChild(item);
+      }
+    }
+
+    function escapeHtml(str) {
+      return str.replace(/[&<>"']/g, (m) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[m]));
+    }
+    function canPreview(mime) {
+      return (mime && (mime.startsWith('image/') || mime.startsWith('text/') || mime === 'application/json'));
+    }
+
+    async function onFileSelected(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      await uploadFile(file);
+      event.target.value = '';
+    }
+
+    async function uploadFile(file) {
+      const passphrase = getPassphrase();
+      if (!passphrase) { setUploadStatus('Podaj passphrase.', 'err'); return; }
+      setUploadStatus('Szyfrowanie pliku…', 'info');
+      try {
+        const content = await file.arrayBuffer();
+        const encryptedContent = await encryptData(content, passphrase);
+        const meta = { name: file.name, mimeType: file.type || 'application/octet-stream', size: file.size };
+        const encMeta = await encryptMetadata(meta, passphrase);
+        const driveName = `enc_${encMeta}.bin`;
+        setUploadStatus('Wysyłanie na Dysk Google…', 'info');
+        await uploadEncryptedFile(encryptedContent, driveName);
+        setUploadStatus('Plik zaszyfrowany i wysłany pomyślnie.', 'ok');
+        await refreshFiles();
+      } catch (e) {
+        setUploadStatus('Błąd: ' + e.message, 'err');
+      }
+    }
+
+    async function downloadFile(fileId, name, mimeType) {
+      setUploadStatus('Pobieranie i odszyfrowywanie…', 'info');
+      try {
+        const passphrase = getPassphrase();
+        const encrypted = await downloadDriveFile(fileId);
+        const decrypted = await decryptData(encrypted, passphrase);
+        const blob = new Blob([decrypted], { type: mimeType || 'application/octet-stream' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = name;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+        setUploadStatus('Pobrano: ' + name, 'ok');
+      } catch (e) {
+        setUploadStatus('Błąd pobierania: ' + e.message, 'err');
+      }
+    }
+
+    async function previewFile(fileId, name, mimeType) {
+      setUploadStatus('Odszyfrowywanie podglądu…', 'info');
+      try {
+        const passphrase = getPassphrase();
+        const encrypted = await downloadDriveFile(fileId);
+        const decrypted = await decryptData(encrypted, passphrase);
+        const blob = new Blob([decrypted], { type: mimeType || 'application/octet-stream' });
+        const container = document.getElementById('previewContent');
+        container.innerHTML = '';
+        document.getElementById('previewTitle').textContent = name;
+
+        if (mimeType && mimeType.startsWith('image/')) {
+          const img = document.createElement('img');
+          img.src = URL.createObjectURL(blob);
+          img.onload = () => URL.revokeObjectURL(img.src);
+          container.appendChild(img);
+        } else if (mimeType && (mimeType.startsWith('text/') || mimeType === 'application/json')) {
+          const text = await blob.text();
+          const pre = document.createElement('pre');
+          pre.textContent = text;
+          container.appendChild(pre);
+        } else {
+          container.innerHTML = '<div class="hint">Nie można wyświetlić tego typu pliku bezpośrednio. Użyj przycisku Pobierz.</div>';
+        }
+        document.getElementById('previewOverlay').classList.remove('hidden');
+        setUploadStatus('Podgląd gotowy.', 'ok');
+      } catch (e) {
+        setUploadStatus('Błąd podglądu: ' + e.message, 'err');
+      }
+    }
+
+    function closePreview(event) {
+      if (!event || event.target.id === 'previewOverlay') {
+        document.getElementById('previewOverlay').classList.add('hidden');
+      }
+    }
+
+    async function removeFile(fileId) {
+      if (!confirm('Na pewno usunąć ten plik z Dysku Google? Tej operacji nie można cofnąć.')) return;
+      try {
+        await deleteDriveFile(fileId);
+        setUploadStatus('Plik usunięty.', 'ok');
+        await refreshFiles();
+      } catch (e) {
+        setUploadStatus('Błąd usuwania: ' + e.message, 'err');
+      }
+    }
+
+    // Drag & drop
+    const dz = document.getElementById('dropzone');
+    dz.addEventListener('dragover', (e) => { e.preventDefault(); dz.classList.add('dragover'); });
+    dz.addEventListener('dragleave', (e) => { e.preventDefault(); dz.classList.remove('dragover'); });
+    dz.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dz.classList.remove('dragover');
+      if (e.dataTransfer.files.length) {
+        onFileSelected({ target: { files: e.dataTransfer.files } });
+      }
+    });
+
+    // Init
+    (function init() {
+      const saved = localStorage.getItem(LS_CLIENT_ID);
+      if (saved) document.getElementById('clientId').value = saved;
+    })();
+  </script>
+</body>
+</html>
